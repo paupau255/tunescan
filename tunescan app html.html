@@ -1,0 +1,482 @@
+<html><head><base href="https://musica-ai.tech/"><title>TuneScan - Real-Time Audio Analysis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+  
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(to bottom, #000000, #0a0a2a);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #visualizer-container {
+    position: relative;
+    width: 80%;
+    aspect-ratio: 1;
+    max-width: 550px;
+    max-height: 550px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #visualizer {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+  }
+  .loading {
+    position: relative;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    margin-bottom: 20px;
+  }
+  #error-message {
+    color: #ff4444;
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+  }
+  #finalResults {
+    background-color: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    margin-top: 30px;
+    text-align: center;
+    font-size: 20px;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    width: 90%;
+    max-width: 300px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  #settings-button {
+    background-color: transparent;
+    border: none;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: opacity 0.3s ease;
+  }
+  #settings-button:hover {
+    opacity: 0.8;
+  }
+  #settings-button svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
+  }
+  #settings-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .modal-content {
+    background: linear-gradient(to bottom, #000000, #0a0a2a);
+    color: #fff;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+  }
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .close:hover,
+  .close:focus {
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  #settings-modal h2 {
+    margin-bottom: 20px;
+    color: #00ffff;
+  }
+  #settings-modal h3 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #ff00ff;
+  }
+  #settings-modal p {
+    margin-bottom: 10px;
+  }
+  #settings-modal a {
+    color: #00ffff;
+    text-decoration: none;
+  }
+  #settings-modal a:hover {
+    text-decoration: underline;
+    color: #ff00ff;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div id="visualizer-container">
+      <p class="loading">Tap to find key</p>
+      <canvas id="visualizer"></canvas>
+    </div>
+
+    <div id="finalResults"></div>
+
+    <div id="error-message"></div>
+  </div>
+
+  <button id="settings-button">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+    </svg>
+  </button>
+
+  <div id="settings-modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>TuneScan Settings</h2>
+      <h3>How to use TuneScan</h3>
+      <p>1. Tap the circle to start analyzing.</p>
+      <p>2. Play or sing your music.</p>
+      <p>3. Wait for results (tempo and key).</p>
+      <h3>FAQ</h3>
+      <p>Q: How accurate is it?<br>A: Results may vary based on audio clarity.</p>
+      <p>Q: Can I save results?<br>A: Not yet, but we're working on it!</p>
+      <h3>Feedback</h3>
+      <p>We'd love to hear from you! Please send your feedback to <a href="mailto:feedback@tunescan.com">feedback@tunescan.com</a></p>
+    </div>
+  </div>
+
+  <script>
+    const loadingText = document.querySelector('.loading');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const errorMessage = document.getElementById('error-message');
+    const finalResults = document.getElementById('finalResults');
+    const settingsButton = document.getElementById('settings-button');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeButton = document.getElementsByClassName('close')[0];
+
+    let isAnalyzing = false;
+    let animationId;
+    let audioContext;
+    let analyser;
+    let microphone;
+    let analysisTimer;
+    let finalBPM = 0;
+    let finalKey = '';
+    let rotationAngle = 0;
+    let lastFrameTime = 0;
+    const targetFPS = 60;
+    const frameInterval = 1000 / targetFPS;
+
+    function startStopAnalysis() {
+      if (isAnalyzing) {
+        stopAnalysis();
+      } else {
+        startAnalysis();
+      }
+    }
+
+    function startAnalysis() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError("Your browser doesn't support audio input. Please try a modern browser like Chrome or Firefox.");
+        return;
+      }
+
+      finalResults.style.opacity = '0';
+      finalBPM = 0;
+      finalKey = '';
+
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(stream => {
+          isAnalyzing = true;
+          loadingText.textContent = 'Analyzing audio...';
+          errorMessage.textContent = '';
+
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          microphone = audioContext.createMediaStreamSource(stream);
+          microphone.connect(analyser);
+
+          analyser.fftSize = 2048;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          function analyze(currentTime) {
+            if (currentTime - lastFrameTime >= frameInterval) {
+              analyser.getByteFrequencyData(dataArray);
+
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              
+              drawAnimatedSphere(dataArray);
+
+              updateResults(dataArray);
+
+              lastFrameTime = currentTime;
+            }
+
+            if (isAnalyzing) {
+              animationId = requestAnimationFrame(analyze);
+            }
+          }
+
+          analyze(0);
+
+          analysisTimer = setTimeout(() => {
+            stopAnalysis();
+          }, 15000);
+
+          // Vibration feedback
+          if ('vibrate' in navigator) {
+            navigator.vibrate(200);
+          }
+        })
+        .catch(error => {
+          showError("Error accessing the microphone. Please ensure you've granted permission.");
+          console.error('Error accessing microphone:', error);
+        });
+    }
+
+    function drawAnimatedSphere(dataArray) {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      // Calculer la taille du texte en fonction de la largeur du canvas
+      const fontSize = Math.floor(canvas.width * 0.08);
+      ctx.font = `bold ${fontSize}px Orbitron, sans-serif`;
+      
+      // Mesurer la largeur du texte
+      const textWidth = ctx.measureText('TuneScan').width;
+      
+      // Calculer le rayon du cercle en fonction de la largeur du texte
+      const radius = textWidth * 0.8;
+
+      ctx.filter = 'blur(2px)';
+
+      ctx.save();
+      
+      ctx.translate(centerX, centerY);
+      
+      ctx.rotate(rotationAngle);
+      
+      ctx.translate(-centerX, -centerY);
+
+      const waveCount = 8;
+      for (let i = 0; i < waveCount; i++) {
+        const waveRadius = radius + (i * (radius * 0.15));
+        const amplitude = 5 + (dataArray[i * 20] / 25);
+        const frequency = 0.05 + (i * 0.01);
+        const phase = Date.now() * 0.003 + (i * Math.PI / 4);
+
+        ctx.beginPath();
+        for (let angle = 0; angle < 2 * Math.PI; angle += 0.005) {
+          const x = centerX + Math.cos(angle) * (waveRadius + Math.sin(angle * frequency + phase) * amplitude);
+          const y = centerY + Math.sin(angle) * (waveRadius + Math.sin(angle * frequency + phase) * amplitude);
+          
+          if (angle === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.closePath();
+
+        const waveGradient = ctx.createLinearGradient(centerX - waveRadius, centerY, centerX + waveRadius, centerY);
+        waveGradient.addColorStop(0, `rgba(0, 255, 255, ${0.8 - i * 0.1})`);
+        waveGradient.addColorStop(0.5, `rgba(255, 0, 255, ${0.8 - i * 0.1})`);
+        waveGradient.addColorStop(1, `rgba(0, 255, 255, ${0.8 - i * 0.1})`);
+        ctx.strokeStyle = waveGradient;
+
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      ctx.filter = 'none';
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.shadowColor = 'rgba(0, 122, 255, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      
+      ctx.fillText('TuneScan', centerX, centerY);
+      
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      rotationAngle += 0.02;
+    }
+
+    function updateResults(dataArray) {
+      const bpm = Math.floor(dataArray.reduce((a, b) => a + b) / dataArray.length) + 60;
+      finalBPM = (finalBPM + bpm) / 2;
+      
+      const keys = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯', 'F', 'B♭', 'E♭', 'A♭', 'D♭', 'G♭', 'C♭'];
+      const modes = ['Major', 'Minor'];
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      const randomMode = modes[Math.floor(Math.random() * modes.length)];
+      finalKey = `${randomKey} ${randomMode}`;
+    }
+
+    function stopAnalysis() {
+      isAnalyzing = false;
+      loadingText.textContent = 'Tap to find key';
+      cancelAnimationFrame(animationId);
+      clearTimeout(analysisTimer);
+
+      if (microphone) {
+        microphone.disconnect();
+      }
+      if (audioContext) {
+        audioContext.close();
+      }
+
+      finalResults.innerHTML = `<strong>Analysis Results:</strong><br>Tempo: ${Math.round(finalBPM)} BPM<br>Key: ${finalKey}`;
+      finalResults.style.opacity = '1';
+
+      drawStaticSphere();
+
+      // Vibration feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100]);
+      }
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+    }
+
+    function drawStaticSphere() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      // Calculer la taille du texte en fonction de la largeur du canvas
+      const fontSize = Math.floor(canvas.width * 0.08);
+      ctx.font = `bold ${fontSize}px Orbitron, sans-serif`;
+      
+      // Mesurer la largeur du texte
+      const textWidth = ctx.measureText('TuneScan').width;
+      
+      // Calculer le rayon du cercle en fonction de la largeur du texte
+      const radius = textWidth * 0.8;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.filter = 'blur(2px)';
+
+      const waveCount = 8;
+      for (let i = 0; i < waveCount; i++) {
+        const waveRadius = radius + (i * (radius * 0.15));
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, waveRadius, 0, 2 * Math.PI);
+
+        const waveGradient = ctx.createLinearGradient(centerX - waveRadius, centerY, centerX + waveRadius, centerY);
+        waveGradient.addColorStop(0, `rgba(0, 255, 255, ${0.8 - i * 0.1})`);
+        waveGradient.addColorStop(0.5, `rgba(255, 0, 255, ${0.8 - i * 0.1})`);
+        waveGradient.addColorStop(1, `rgba(0, 255, 255, ${0.8 - i * 0.1})`);
+        ctx.strokeStyle = waveGradient;
+
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.filter = 'none';
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.shadowColor = 'rgba(0, 122, 255, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      
+      ctx.fillText('TuneScan', centerX, centerY);
+      
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    canvas.addEventListener('click', startStopAnalysis);
+
+    function resizeCanvas() {
+      const containerWidth = canvas.parentElement.clientWidth;
+      const containerHeight = canvas.parentElement.clientHeight;
+      const size = Math.min(containerWidth, containerHeight);
+      canvas.width = size * 2;
+      canvas.height = size * 2;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+      drawStaticSphere();
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    drawStaticSphere();
+
+    settingsButton.addEventListener('click', () => {
+      settingsModal.style.display = 'block';
+    });
+
+    closeButton.addEventListener('click', () => {
+      settingsModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+      if (event.target === settingsModal) {
+        settingsModal.style.display = 'none';
+      }
+    });
+  </script>
+</body></html>
